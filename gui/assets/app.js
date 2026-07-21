@@ -231,6 +231,7 @@ function renderItemEditMode(item) {
 function statusButtons(item) {
   const id = item.id;
   const s = item.status;
+  const h = item.horizon;
   const btns = [];
   // Only show the transitions that make sense from the current state.
   // Keeps the card compact by not listing the status the item is already in.
@@ -240,6 +241,13 @@ function statusButtons(item) {
   if (s === "doing")    btns.push(`<button data-status="todo" data-id="${id}" title="Pause back to Active">Pause</button>`);
   if (s !== "done" && s !== "archived") btns.push(`<button data-status="done" data-id="${id}">Done</button>`);
   if (s !== "archived") btns.push(`<button data-status="archived" data-id="${id}" title="Archive">🗑</button>`);
+  // Horizon shortcuts
+  if (h !== "long_term" && s !== "done" && s !== "archived") {
+    btns.push(`<button data-move="longterm" data-id="${id}" title="Move to Long-term backlog">→ Long-term</button>`);
+  }
+  if (h === "long_term") {
+    btns.push(`<button data-move="active" data-id="${id}" title="Move to Active backlog">→ Active</button>`);
+  }
   return btns.join("");
 }
 
@@ -431,6 +439,19 @@ document.addEventListener("click", async (event) => {
     await withBusy(target, async () => {
       try {
         await changeItemStatus(target.dataset.id, target.dataset.status);
+      } catch (error) {
+        setFeedback(error.message, "error");
+      }
+    });
+  }
+  if (target.dataset.move && target.dataset.id) {
+    await withBusy(target, async () => {
+      try {
+        const patch = target.dataset.move === "longterm"
+          ? { horizon: "long_term", status: "todo" }
+          : { horizon: "now", status: "todo" };
+        await request(`/items/${target.dataset.id}`, { method: "PATCH", body: JSON.stringify(patch) });
+        await refresh();
       } catch (error) {
         setFeedback(error.message, "error");
       }
